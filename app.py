@@ -70,7 +70,7 @@ class Config:
     MAX_CONTENT_LENGTH = 80 * 1024 * 1024 
 
 # --- GEMINI AI CONFIGURATION ---
-os.environ["GEMINI_API_KEY"] = "AIzaSyB_OkG3b1lI7MlJ5Ql9DSLZxEZr_vuZWBM" 
+os.environ["GEMINI_API_KEY"] = "GEMINI API KEY" 
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
 PERIOD_MAP = {
@@ -1217,4 +1217,5 @@ app.register_blueprint(faculty_bp)
 app.register_blueprint(student_bp)
 
 if __name__ == '__main__':
+
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
