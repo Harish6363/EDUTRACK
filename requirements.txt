@@ -1,0 +1,9 @@
+Flask==3.0.0
+Flask-PyMongo==2.3.0
+pymongo==4.6.1
+Werkzeug==3.0.1
+google-generativeai==0.3.2
+Pillow==10.1.0
+pandas==2.1.4
+numpy==1.26.2
+python-dotenv==1.0.0

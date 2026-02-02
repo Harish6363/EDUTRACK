@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}Upload Marks{% endblock %}
+
+{% block dashboard_content %}
+<div class="header"><h1>Upload Student Marks</h1></div>
+
+<div class="card">
+  <h3>Upload for a Single Student</h3>
+  <form method="post" action="{{ url_for('faculty.upload_marks') }}">
+    
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+        <div>
+            <label for="student_id">Select Student</label>
+            <select name="student_id" id="student_id" required>
+              <option value="">-- Choose a student --</option>
+              {% for student in students %}
+                <option value="{{ student._id }}">{{ student.name }} ({{ student.roll_no }})</option>
+              {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="semester">Semester</label>
+            <input type="number" name="semester" id="semester" min="1" max="8" placeholder="e.g., 3" required>
+        </div>
+    </div>
+
+    <hr style="margin: 20px 0;">
+    <h4>Enter Marks</h4>
+    
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+      <input type="text" name="subject_1" placeholder="Subject Name 1">
+      <input type="number" name="score_1" placeholder="Score 1" min="0" max="100">
+      <input type="text" name="subject_2" placeholder="Subject Name 2">
+      <input type="number" name="score_2" placeholder="Score 2" min="0" max="100">
+      <input type="text" name="subject_3" placeholder="Subject Name 3">
+      <input type="number" name="score_3" placeholder="Score 3" min="0" max="100">
+      <input type="text" name="subject_4" placeholder="Subject Name 4">
+      <input type="number" name="score_4" placeholder="Score 4" min="0" max="100">
+      <input type="text" name="subject_5" placeholder="Subject Name 5">
+      <input type="number" name="score_5" placeholder="Score 5" min="0" max="100">
+    </div>
+
+    <button class="btn" style="margin-top:15px;">Save Marks</button>
+  </form>
+</div>
+
+<div class="card">
+    <h3>Bulk Upload Marks (Excel or CSV)</h3>
+    <form method="post" action="{{ url_for('faculty.bulk_upload_marks') }}" enctype="multipart/form-data">
+        <p style="font-size: 14px; color: var(--light-text); margin-bottom: 15px;">
+            Required columns: <strong>Roll_Number</strong>, <strong>Subject_1</strong>, <strong>Score_1</strong>, <strong>Subject_2</strong>, <strong>Score_2</strong>, ... (up to 5 subjects)
+        </p>
+        
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+            <div>
+                <label for="marks_file">Upload File</label>
+                <input type="file" name="marks_file" id="marks_file" accept=".csv,.xls,.xlsx" required>
+            </div>
+            <div>
+                <label for="bulk_semester">Semester</label>
+                <input type="number" name="semester" id="bulk_semester" min="1" max="8" placeholder="e.g., 3" required>
+            </div>
+        </div>
+        
+        <button class="btn" style="margin-top: 15px; background-color: var(--success-text);">
+            <i data-feather="upload" style="width: 18px; margin-right: 8px;"></i>
+            Upload and Process Bulk Marks
+        </button>
+    </form>
+</div>
+{% endblock %}

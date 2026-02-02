@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}Mark Attendance{% endblock %}
+
+{% block dashboard_content %}
+<div class="header">
+    <h1>Mark Attendance</h1>
+</div>
+
+<div class="dashboard-content-wrapper">
+    
+    <div class="card">
+      <h3><i data-feather="file-text"></i> Standard Upload (Excel/Manual)</h3>
+      <form method="post" enctype="multipart/form-data">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                <label>Section</label>
+                <select name="section" required>
+                    <option value="">-- Select a Section --</option>
+                  {% for s in sections %}
+                  <option value="{{ s }}">{{ s }}</option>
+                  {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Subject</label>
+                <select name="subject" required>
+                    <option value="">-- Select your Subject --</option>
+                    {% for sub in faculty_subjects %}
+                    <option value="{{ sub }}">{{ sub }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <hr style="margin: 20px 0;">
+
+        <label><strong>Option 1: Upload Attendance Sheet (Excel or CSV)</strong></label>
+        <input type="file" name="attendance_sheet" accept=".csv,.xls,.xlsx">
+
+        <p style="text-align:center; margin: 20px 0; font-weight: 600; color: #999;">— OR —</p>
+        
+        <label><strong>Option 2: Manually enter absent roll numbers</strong></label>
+        <textarea name="absent_list" rows="3" placeholder="e.g. A004, 3BI22AI029, C001"></textarea>
+
+        <button class="btn" style="margin-top:15px;">Process Attendance</button>
+      </form>
+    </div>
+
+    <div class="card" style="border: 2px dashed var(--primary-color); background-color: #f0f8ff;">
+        <h3><i data-feather="camera"></i> AI Smart Scanner (Multi-Day Supported)</h3>
+        <p style="color: var(--light-text);">
+            Upload a photo of the physical attendance register. The AI automatically detects <strong>dates in headers</strong> and processes single days or whole weeks at once!
+        </p>
+        
+        <form method="post" action="{{ url_for('faculty.smart_attendance_upload') }}" enctype="multipart/form-data">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+                <div>
+                    <label>Section</label>
+                    <select name="section" required>
+                        {% for s in sections %}
+                        <option value="{{ s }}">{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Subject</label>
+                    <select name="subject" required>
+                        {% for sub in faculty_subjects %}
+                        <option value="{{ sub }}">{{ sub }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <label>Upload Photo (JPG/PNG)</label>
+            <input type="file" name="attendance_image" accept="image/*" required>
+            
+            <button class="btn" style="margin-top: 15px; background-color: #673ab7;">
+                <i data-feather="aperture" style="width: 16px;"></i> Scan & Upload
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

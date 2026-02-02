@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% block title %}AI Study Tools{% endblock %}
+
+{% block dashboard_content %}
+<div class="header">
+    <h1>AI Study Tools</h1>
+</div>
+
+<div class="dashboard-content-wrapper">
+    
+    <div class="card">
+        <h3><i data-feather="cpu"></i> Generate Flashcards from PDF</h3>
+        <p style="color: var(--light-text); margin-bottom: 15px;">Upload your lecture notes (PDF). Our AI will read them, summarize them, and create flashcards for you.</p>
+        <form method="post" enctype="multipart/form-data" style="display: flex; gap: 10px; align-items: center;">
+            <input type="file" name="study_file" accept="application/pdf" required style="flex-grow: 1;">
+            <button class="btn">
+                <i data-feather="zap" style="width: 16px;"></i> Generate
+            </button>
+        </form>
+    </div>
+
+    {% if materials %}
+        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
+            
+            <div class="card">
+                <h4>Your Study Materials</h4>
+                <div style="max-height: 500px; overflow-y: auto;">
+                    {% for mat in materials %}
+                    <div class="material-item" onclick="loadMaterial('{{ mat._id }}')" id="btn-{{ mat._id }}"
+                         style="padding: 15px; border: 1px solid var(--border-color); margin-bottom: 10px; border-radius: 8px; cursor: pointer; transition: 0.2s; position: relative;">
+                        
+                        <div style="padding-right: 30px;"> 
+                            <strong>{{ mat.original_name }}</strong><br>
+                            <small style="color: var(--light-text);">{{ mat.created_at.strftime('%d-%b %I:%M %p') }}</small>
+                        </div>
+
+                        <a href="{{ url_for('student.delete_study_material', material_id=mat._id) }}" 
+                           class="btn-delete"
+                           title="Delete Material"
+                           onclick="event.stopPropagation(); return confirm('Are you sure you want to delete this study material?');">
+                            <i data-feather="trash-2"></i>
+                        </a>
+                        
+                        <div id="data-{{ mat._id }}" style="display: none;">
+                            <div class="summary">{{ mat.summary }}</div>
+                            <div class="flashcards">{{ mat.flashcards | tojson }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card" id="workspace" style="display: none;">
+                <h3 id="workspace-title">Select a file...</h3>
+                
+                <div class="tab-nav">
+                    <button class="tab-link active" onclick="switchTab('summary-tab')">Summary</button>
+                    <button class="tab-link" onclick="switchTab('flashcards-tab')">Flashcards</button>
+                    <button class="tab-link" onclick="switchTab('chat-tab')">Chat with Notes</button>
+                </div>
+
+                <div id="summary-tab" class="study-tab" style="display: block;">
+                    <p id="summary-content" style="line-height: 1.6;"></p>
+                </div>
+
+                <div id="flashcards-tab" class="study-tab" style="display: none;">
+                    <div id="flashcards-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        </div>
+                </div>
+
+                <div id="chat-tab" class="study-tab" style="display: none;">
+                    <div id="chat-history" style="height: 300px; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; overflow-y: auto; margin-bottom: 15px; background: #f9f9f9;">
+                        <div class="chat-msg ai">Hello! Ask me anything about this document.</div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="chat-input" placeholder="Ask a question..." style="flex-grow: 1;">
+                        <button class="btn" onclick="sendMessage()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+    .material-item:hover { background-color: var(--secondary-color); }
+    .material-item.active { border: 2px solid var(--primary-color); background-color: #e3f2fd; }
+    
+    /* Delete Button Style */
+    .btn-delete {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        color: var(--light-text);
+        padding: 5px;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+    .btn-delete:hover {
+        color: var(--danger-text);
+        background-color: #ffebee;
+    }
+    .btn-delete i {
+        width: 16px;
+        height: 16px;
+    }
+    
+    .flashcard {
+        background: #fff; border: 1px solid var(--primary-color); border-radius: 8px; padding: 20px;
+        min-height: 150px; display: flex; align-items: center; justify-content: center; text-align: center;
+        cursor: pointer; transition: transform 0.3s; perspective: 1000px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .flashcard:hover { transform: translateY(-5px); }
+    .flashcard .answer { display: none; color: var(--success-text); font-weight: 600; }
+    .flashcard.flipped .question { display: none; }
+    .flashcard.flipped .answer { display: block; }
+
+    .chat-msg { padding: 8px 12px; border-radius: 15px; margin-bottom: 10px; max-width: 80%; }
+    .chat-msg.user { background: var(--primary-color); color: white; margin-left: auto; }
+    .chat-msg.ai { background: #e0e0e0; color: black; margin-right: auto; }
+    
+    .study-tab { min-height: 300px; }
+</style>
+
+<script>
+    let currentMaterialId = null;
+
+    function loadMaterial(id) {
+        currentMaterialId = id;
+        document.getElementById('workspace').style.display = 'block';
+        
+        // Highlight active
+        document.querySelectorAll('.material-item').forEach(el => el.classList.remove('active'));
+        document.getElementById('btn-' + id).classList.add('active');
+
+        // Load Data
+        const dataDiv = document.getElementById('data-' + id);
+        const summary = dataDiv.querySelector('.summary').innerText;
+        const flashcards = JSON.parse(dataDiv.querySelector('.flashcards').innerText);
+        const title = document.getElementById('btn-' + id).querySelector('strong').innerText;
+
+        document.getElementById('workspace-title').innerText = title;
+        document.getElementById('summary-content').innerText = summary;
+
+        // Render Flashcards
+        const fcContainer = document.getElementById('flashcards-container');
+        fcContainer.innerHTML = '';
+        flashcards.forEach(fc => {
+            const card = document.createElement('div');
+            card.className = 'flashcard';
+            card.innerHTML = `<div class="question">${fc.question}</div><div class="answer">${fc.answer}</div>`;
+            card.onclick = () => card.classList.toggle('flipped');
+            fcContainer.appendChild(card);
+        });
+
+        // Reset Chat
+        document.getElementById('chat-history').innerHTML = '<div class="chat-msg ai">Hello! Ask me anything about ' + title + '.</div>';
+    }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.study-tab').forEach(el => el.style.display = 'none');
+        document.getElementById(tabId).style.display = 'block';
+        
+        document.querySelectorAll('.tab-link').forEach(el => el.classList.remove('active'));
+        event.target.classList.add('active');
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if (!text || !currentMaterialId) return;
+
+        // UI Update
+        const history = document.getElementById('chat-history');
+        history.innerHTML += `<div class="chat-msg user">${text}</div>`;
+        input.value = '';
+        history.scrollTop = history.scrollHeight;
+
+        // API Call
+        try {
+            const response = await fetch("{{ url_for('student.chat_with_notes') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ material_id: currentMaterialId, question: text })
+            });
+            const data = await response.json();
+            history.innerHTML += `<div class="chat-msg ai">${data.answer}</div>`;
+            history.scrollTop = history.scrollHeight;
+        } catch (err) {
+            history.innerHTML += `<div class="chat-msg ai" style="color:red">Error connecting to AI.</div>`;
+        }
+    }
+</script>
+{% endblock %}

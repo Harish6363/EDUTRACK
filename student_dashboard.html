@@ -1,0 +1,502 @@
+{% extends 'base.html' %}
+{% block title %}Student Dashboard{% endblock %}
+
+{% block dashboard_content %}
+<div class="header">
+    <h1>Welcome, {{ user.name.split(' ')[0] }}!</h1>
+</div>
+
+<div class="dashboard-content-wrapper">
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="icon attendance"><i data-feather="pie-chart"></i></div>
+            <div class="stat-info">
+                <h4>{{ percent }}%</h4>
+                <p>Overall Attendance</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="icon classes"><i data-feather="book-open"></i></div>
+            <div class="stat-info">
+                <h4>{{ user.attended }}/{{ user.total_classes }}</h4>
+                <p>Classes Attended</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="icon status">
+                {% if today_status == 'Present' %}<i data-feather="check-circle"></i>
+                {% elif today_status == 'Absent' %}<i data-feather="x-circle"></i>
+                {% else %}<i data-feather="clock"></i>{% endif %}
+            </div>
+            <div class="stat-info">
+                <h4>{{ today_status or 'Pending' }}</h4>
+                <p>Today's Status</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card profile-card" style="max-width: 600px; margin: 20px auto;">
+        <div class="profile-avatar">
+            {{ user.name[0] }}
+        </div>
+        <div class="profile-info">
+            <h4>{{ user.name }}</h4>
+            <p>{{ user.email }}</p>
+            <p><strong>Phone:</strong> {{ user.phone or 'N/A' }}</p>
+            <p style="margin-bottom: 20px;">
+                <strong>Roll No:</strong> {{ user.roll_no }} | <strong>Section:</strong> {{ user.section }}
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <a href="{{ url_for('student.edit_profile') }}" class="btn">Edit Profile</a>
+                <a href="{{ url_for('student.change_password') }}" class="btn" style="background-color: var(--light-text);">Change Password</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-wrapper">
+        <div class="tab-nav">
+            <button class="tab-link active" onclick="openTab(event, 'timetable')"><i data-feather="calendar"></i> My Timetable</button>
+            <button class="tab-link" onclick="openTab(event, 'marks')"><i data-feather="award"></i> My Marks</button>
+            <button class="tab-link" onclick="openTab(event, 'attendance')"><i data-feather="check-square"></i> My Attendance</button>
+            <button class="tab-link" onclick="openTab(event, 'resources')"><i data-feather="book-open"></i> Resources</button>
+            <button class="tab-link" onclick="openTab(event, 'announcements')"><i data-feather="bell"></i> Announcements</button>
+        </div>
+
+        <div id="timetable" class="tab-content" style="display: block;">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3>My Weekly Timetable</h3>
+                    {% if timetable_by_day %}
+                        <a href="{{ url_for('student.download_timetable') }}" class="btn btn-small" style="background-color: var(--success-bg); color: var(--success-text);">
+                            <i data-feather="download" style="width: 16px;"></i> Download
+                        </a>
+                    {% endif %}
+                </div>
+
+                {% if timetable_by_day %}
+                    <div class="stats-grid" style="margin-top: 20px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+                    {% for day, entries in timetable_by_day.items()|sort %}
+                        <div class="card" style="box-shadow: none; border: 1px solid var(--border-color);">
+                            <h5>{{ day }}</h5>
+                            <table class="table">
+                                <thead><tr><th>Time</th><th>Class</th></tr></thead>
+                                <tbody>
+                                {% for entry in entries|sort(attribute='period_num') %}
+                                    <tr>
+                                        <td>{{ entry.time_slot }}</td>
+                                        <td>
+                                            <strong>{{ entry.subject }}</strong>
+                                            <br>
+                                            <small style="color: var(--light-text);">{{ entry.faculty_name }}</small>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endfor %}
+                    </div>
+                {% else %}
+                    <p style="margin-top: 15px;">Your timetable has not been published yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div id="marks" class="tab-content">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+                    <div style="flex-grow: 1; min-width: 200px;">
+                        <label for="semesterFilter">Select Semester</label>
+                        <select id="semesterFilter">
+                            {% if marks_card_data %}
+                                {% for sem_data in marks_card_data|sort(attribute='semester') %}
+                                    <option value="{{ sem_data.semester }}">{{ sem_data.semester }}</option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="">No marks uploaded</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                    <a href="{{ url_for('student.download_marks') }}" class="btn btn-small" style="background-color: var(--success-bg); color: var(--success-text); margin-top: 10px;">
+                        <i data-feather="download" style="width: 16px;"></i> Download Full Report
+                    </a>
+                </div>
+            </div>
+
+            <div class="card" id="marksCardContent">
+                <div style="height: 300px; position: relative; margin-bottom: 20px;">
+                    <div id="marksChartContainer" style="height: 300px; position: relative;">
+                        <canvas id="studentMarksChart"></canvas>
+                    </div>
+                </div>
+                
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Score</th>
+                            <th>Grade</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="marksTableBody">
+                        </tbody>
+                </table>
+                <p id="noMarksMessage" style="display: none; margin-top: 15px;">No marks have been uploaded for this semester.</p>
+            </div>
+        </div>
+
+        <div id="attendance" class="tab-content">
+            
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+                    <div style="flex-grow: 1; min-width: 200px;">
+                        <label for="subjectFilter">Filter by Subject</label>
+                        <select id="subjectFilter">
+                            <option value="all">All Subjects</option>
+                            {% for sub in subject_attendance_data %}
+                                <option value="{{ sub.subject }}">{{ sub.subject }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <a href="{{ url_for('student.download_attendance') }}" class="btn btn-small" style="background-color: var(--success-bg); color: var(--success-text); margin-top: 10px;">
+                        <i data-feather="download" style="width: 16px;"></i> Download Full Report
+                    </a>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Subject-wise Attendance</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Classes (Attended / Total)</th>
+                            <th>Percentage</th>
+                        </tr>
+                    </thead>
+                    <tbody id="subjectTableBody">
+                        {% for sub in subject_attendance_data %}
+                        <tr>
+                            <td>{{ sub.subject }}</td>
+                            <td>{{ sub.attended }} / {{ sub.total }}</td>
+                            <td class="{{ 'status-pass-text' if sub.percent >= 75 else 'status-fail-text' }}" style="font-weight: 600;">
+                                {{ sub.percent }}%
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr id="noSubjectData"><td colspan="3">No subject-specific attendance data found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Daily Attendance History</h3>
+                <table class="table" style="margin-top: 15px;">
+                    <thead><tr><th>Date</th><th>Status</th></tr></thead>
+                    <tbody id="historyTableBody">
+                        {% for record in attendance_history %}
+                            <tr data-subject="{{ record.subject or 'Unknown' }}">
+                                <td>{{ record.date }}</td>
+                                <td>
+                                    <span class="badge {{ 'present' if record.status=='Present' else 'absent' }}">{{ record.status }}</span>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr id="noHistoryData"><td colspan="2">No attendance history found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="resources" class="tab-content">
+            <div class="card">
+              <h3>Course Resources</h3>
+              {% if resources %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Subject</th>
+                            <th>Section</th>
+                            <th>Posted On</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for res in resources %}
+                        <tr>
+                            <td>{{ res.title }}</td>
+                            <td><span class="badge" style="background-color: #6c757d;">{{ res.subject }}</span></td>
+                            <td>{{ res.section }}</td>
+                            <td>{{ res.timestamp.strftime('%d-%b-%Y') }}</td>
+                            <td>
+                                <a href="{{ url_for('student.get_resource', filename=res.filename) }}" class="btn btn-small">
+                                    <i data-feather="download"></i> Download
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+              {% else %}
+                <p>No resources have been uploaded by faculty yet.</p>
+              {% endif %}
+            </div>
+        </div>
+
+        <div id="announcements" class="tab-content">
+            <div class="card">
+              <h3>Announcements & Events</h3>
+              {% for announcement in announcements %}
+                <div class="card" style="margin-bottom:15px; border: 1px solid var(--border-color);">
+                  <h5>{{ announcement.title }} <span class="badge" style="background-color: #6c757d; font-size:12px;">{{ announcement.post_type }}</span></h5>
+                  
+                  {% if announcement.image_filename %}
+                  <img src="{{ url_for('student.get_announcement_image', filename=announcement.image_filename) }}">
+                       alt="Announcement Image" 
+                       style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-top: 15px;">
+                  {% endif %}
+
+                  <p style="white-space: pre-wrap; margin-top:15px;">{{ announcement.content }}</p>
+                  <small style="color:var(--light-text); margin-top:15px; display:block;">Posted by {{ announcement.posted_by }} on {{ announcement.timestamp.strftime('%d-%b-%Y') }}</small>
+                </div>
+              {% else %}
+                <p>No announcements at this time.</p>
+              {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Store all marks data from Flask ---
+    const allMarksData = {{ marks_card_data | tojson | safe }};
+    let myMarksChart = null; // Variable to hold the chart instance
+
+    // --- Tabbed Interface JavaScript ---
+    function openTab(evt, tabName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+        tablinks = document.getElementsByClassName("tab-link");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+        feather.replace();
+
+        // MODIFIED: Only draw the marks chart if the tab is 'marks'
+        if (tabName === 'marks') {
+            const selectedSem = document.getElementById('semesterFilter').value;
+            if (selectedSem) {
+                displaySemesterMarks(selectedSem);
+            } else {
+                displaySemesterMarks(null); // Handle case with no marks
+            }
+        }
+    }
+    
+    // --- Function to render marks table and chart ---
+    function displaySemesterMarks(semester) {
+        if (!semester) {
+            document.getElementById('noMarksMessage').style.display = 'block';
+            document.getElementById('marksChartContainer').style.display = 'none';
+            document.getElementById('marksTableBody').innerHTML = '';
+            return;
+        }
+
+        const semesterData = allMarksData.find(s => s.semester == semester);
+        
+        const tableBody = document.getElementById('marksTableBody');
+        const chartContainer = document.getElementById('marksChartContainer');
+        const noMarksMsg = document.getElementById('noMarksMessage');
+        
+        tableBody.innerHTML = ''; // Clear old table
+
+        if (!semesterData || !semesterData.marks || semesterData.marks.length === 0) {
+            noMarksMsg.style.display = 'block';
+            chartContainer.style.display = 'none';
+            return;
+        }
+
+        noMarksMsg.style.display = 'none';
+        chartContainer.style.display = 'block';
+        
+        let subjects = [];
+        let scores = [];
+
+        // 1. Build the Marks Table
+        semesterData.marks.forEach(mark => {
+            const score = parseInt(mark.score, 10) || 0;
+            let grade = 'F';
+            let status = 'Fail';
+            let statusClass = 'status-fail-text';
+
+            if (score >= 90) { grade = 'A'; }
+            else if (score >= 80) { grade = 'B'; }
+            else if (score >= 70) { grade = 'C'; }
+            else if (score >= 60) { grade = 'D'; }
+            else if (score >= 50) { grade = 'E'; }
+            else if (score >= 40) { grade = 'P'; }
+            
+            if (score >= 40) {
+                status = 'Pass';
+                statusClass = 'status-pass-text';
+            }
+            
+            const row = `<tr>
+                <td>${mark.subject}</td>
+                <td style="font-weight: 600;">${score}</td>
+                <td>${grade}</td>
+                <td class="${statusClass}" style="font-weight: 600;">${status}</td>
+            </tr>`;
+            tableBody.innerHTML += row;
+
+            // 2. Prepare data for the chart
+            subjects.push(mark.subject);
+            scores.push(score);
+        });
+
+        // 3. Build the Marks Chart
+        chartContainer.innerHTML = '<canvas id="studentMarksChart"></canvas>';
+        const ctx = document.getElementById('studentMarksChart').getContext('2d');
+        
+        if (myMarksChart) {
+            myMarksChart.destroy(); // Destroy old chart instance
+        }
+
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(74, 144, 226, 0.8)');
+        gradient.addColorStop(1, 'rgba(74, 144, 226, 0.3)');
+
+        myMarksChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: subjects,
+                datasets: [{
+                    label: 'My Score',
+                    data: scores,
+                    backgroundColor: gradient,
+                    borderColor: 'rgba(74, 144, 226, 1)',
+                    borderWidth: 2,
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                scales: { 
+                    y: { beginAtZero: true, max: 100 }
+                },
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+
+    // --- Attendance Filter Logic ---
+    function filterAttendanceTables() {
+        const selectedSubject = document.getElementById('subjectFilter').value;
+        
+        let subjectVisibleCount = 0;
+        let historyVisibleCount = 0;
+        
+        const subjectTableBody = document.getElementById('subjectTableBody');
+        const historyTableBody = document.getElementById('historyTableBody');
+        
+        const noSubjectData = document.getElementById('noSubjectData');
+        const noHistoryData = document.getElementById('noHistoryData');
+        
+        if (noSubjectData) noSubjectData.style.display = 'none';
+        if (noHistoryData) noHistoryData.style.display = 'none';
+
+        // 1. Filter Subject-wise table
+        if (subjectTableBody) {
+            const subjectRows = subjectTableBody.getElementsByTagName('tr');
+            for (let i = 0; i < subjectRows.length; i++) {
+                const row = subjectRows[i];
+                if (row.id === 'noSubjectData') continue;
+                const rowSubject = row.cells[0].textContent;
+                if (selectedSubject === 'all' || rowSubject === selectedSubject) {
+                    row.style.display = '';
+                    subjectVisibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        }
+        
+        // 2. Filter Daily History table
+        if (historyTableBody) {
+            const historyRows = historyTableBody.getElementsByTagName('tr');
+            for (let i = 0; i < historyRows.length; i++) {
+                const row = historyRows[i];
+                if (row.id === 'noHistoryData') continue;
+                const rowSubject = row.dataset.subject;
+                if (selectedSubject === 'all' || rowSubject === selectedSubject) {
+                    row.style.display = '';
+                    historyVisibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        }
+
+        if (subjectVisibleCount === 0 && noSubjectData) {
+            noSubjectData.style.display = 'table-row';
+        }
+        if (historyVisibleCount === 0 && noHistoryData) {
+            noHistoryData.style.display = 'table-row';
+        }
+    }
+
+    // --- Event Listeners ---
+    
+    // Listener for Attendance subject filter
+    const subjectFilter = document.getElementById('subjectFilter');
+    if (subjectFilter) {
+        subjectFilter.addEventListener('change', filterAttendanceTables);
+    }
+    
+    // Listener for new Semester filter
+    const semesterFilter = document.getElementById('semesterFilter');
+    if (semesterFilter) {
+        semesterFilter.addEventListener('change', (e) => {
+            displaySemesterMarks(e.target.value);
+        });
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        feather.replace();
+        
+        // Trigger initial display for marks
+        const firstSem = document.getElementById('semesterFilter').value;
+        if (firstSem) {
+             // Don't call this here, openTab will handle it by default
+        } else {
+            // Show the "no marks" message if no semesters exist at all
+            displaySemesterMarks(null);
+        }
+
+        // Initially hide the "no data" rows (if they exist)
+        const noSubjectData = document.getElementById('noSubjectData');
+        const noHistoryData = document.getElementById('noHistoryData');
+        
+        if (noSubjectData && document.getElementById('subjectTableBody').getElementsByTagName('tr').length > 1) {
+             noSubjectData.style.display = 'none';
+        }
+        if (noHistoryData && document.getElementById('historyTableBody').getElementsByTagName('tr').length > 1) {
+             noHistoryData.style.display = 'none';
+        }
+    });
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,242 @@
+{% extends 'base.html' %}
+{% block title %}User Management{% endblock %}
+
+{% block dashboard_content %}
+<div class="header">
+    <h1>User Management</h1>
+</div>
+
+<div class="dashboard-content-wrapper">
+    <div class="stats-grid" style="grid-template-columns: 1fr 1fr; align-items: start;">
+        <div class="card">
+            <h3>Add New User</h3>
+            <form method="post" action="{{ url_for('admin.add_user') }}">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div><label>Name</label><input name="name" required></div>
+                    <div><label>Email</label><input type="email" name="email" required></div>
+                    <div><label>Password</label><input type="password" name="password" required></div>
+                    <div>
+                        <label>Role</label>
+                        <select name="role">
+                            <option value="student">Student</option>
+                            <option value="faculty">Faculty</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div><label>Section (if student)</label><input name="section"></div>
+                    <div><label>Roll no (if student)</label><input name="roll_no"></div>
+                </div>
+                
+                <label style="margin-top: 10px;">Phone Number (with country code)</label>
+                <input name="phone" placeholder="e.g., +919876543210">
+
+                <label style="margin-top: 10px;">Subjects (if faculty, comma-separated)</label>
+                <input name="subjects" placeholder="e.g., Java, Python, DSA">
+                
+                <button class="btn" style="margin-top: 15px;">Add User</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Bulk Upload Users</h3>
+            <p style="font-size: 14px; color: var(--light-text); margin-bottom: 15px;">
+                Upload a CSV file with columns: `name`, `email`, `password`, `role`, `section`, `roll_no`, `subjects`, `phone`
+            </p>
+            <form method="post" action="{{ url_for('admin.bulk_upload') }}" enctype="multipart/form-data">
+                <label>Upload CSV File</label>
+                <input type="file" name="user_file" accept=".csv" required style="padding: 10px;">
+                <button class="btn" style="margin-top: 15px; background-color: var(--success-text);">
+                    <i data-feather="upload" style="width: 18px; margin-right: 5px;"></i>
+                    Upload and Create Users
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>All Users</h3>
+        
+        <div class="filter-bar">
+            <input type="text" id="userSearchInput" oninput="filterUserTable()" placeholder="Search by name, email, or roll no...">
+            <select id="roleFilter" onchange="filterUserTable()">
+                <option value="">All Roles</option>
+                <option value="student">Student</option>
+                <option value="faculty">Faculty</option>
+                <option value="admin">Admin</option>
+            </select>
+        </div>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Phone</th> <th>Section/Subjects</th>
+                    <th>Roll No.</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="userTableBody">
+                {% for u in users %}
+                <tr>
+                    <td>{{ u.name }}</td>
+                    <td>{{ u.email }}</td>
+                    <td>{{ u.role }}</td>
+                    <td>{{ u.phone or 'N/A' }}</td> <td>
+                        {% if u.role == 'student' %}
+                            {{ u.section or 'N/A' }}
+                        {% elif u.role == 'faculty' %}
+                            {{ u.subjects | join(', ') if u.subjects else 'N/A' }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+
+                    <td>{{ u.roll_no or 'N/A' }}</td>
+                    <td style="display: flex; gap: 10px;">
+                        <button class="btn btn-small"
+                                data-id="{{ u._id }}"
+                                data-name="{{ u.name }}"
+                                data-email="{{ u.email }}"
+                                data-role="{{ u.role }}"
+                                data-section="{{ u.section or '' }}"
+                                data-roll="{{ u.roll_no or '' }}"
+                                data-subjects="{{ u.subjects | join(', ') if u.subjects else '' }}"
+                                data-phone="{{ u.phone or '' }}"
+                                onclick="showEditModal(this)">
+                            <i data-feather="edit-2"></i> Edit
+                        </button>
+                        <a href="{{ url_for('admin.remove_user', user_id=u._id) }}" class="btn btn-danger btn-small" onclick="return confirm('Are you sure you want to remove this user?');">
+                            <i data-feather="trash-2"></i> Remove
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="editUserModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content card">
+        <button class="modal-close" onclick="closeEditModal()">&times;</button>
+        <h3>Edit User Details</h3>
+        <form id="editUserForm" method="post">
+            <label>Name</label>
+            <input id="edit_name" name="name" required>
+            
+            <label>Email</label>
+            <input id="edit_email" name="email" type="email" required>
+
+            <label>Role</label>
+            <select id="edit_role" name="role" required>
+                <option value="student">Student</option>
+                <option value="faculty">Faculty</option>
+                <option value="admin">Admin</option>
+            </select>
+            
+            <label>Phone Number</label>
+            <input id="edit_phone" name="phone" placeholder="e.g., +919876543210">
+
+            <label>Section (if student)</label>
+            <input id="edit_section" name="section">
+            
+            <label>Roll No (if student)</label>
+            <input id="edit_roll_no" name="roll_no">
+
+            <label>Subjects (if faculty, comma-separated)</label>
+            <input id="edit_subjects" name="subjects" placeholder="e.g., Java, Python, DSA">
+
+            <label>New Password (Optional)</label>
+            <input name="password" type="password" placeholder="Leave blank to keep unchanged">
+            
+            <button class="btn" style="width: 100%; margin-top: 15px;">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    // --- Edit User Modal Logic ---
+    function showEditModal(button) {
+        // 1. Get data from button
+        const id = button.getAttribute('data-id');
+        const name = button.getAttribute('data-name');
+        const email = button.getAttribute('data-email');
+        const role = button.getAttribute('data-role');
+        const section = button.getAttribute('data-section');
+        const roll = button.getAttribute('data-roll');
+        const subjects = button.getAttribute('data-subjects'); 
+        const phone = button.getAttribute('data-phone'); // <-- NEW
+
+        // 2. Set form action URL
+        const form = document.getElementById('editUserForm');
+        form.action = `/admin/edit_user/${id}`;
+
+        // 3. Populate form fields
+        document.getElementById('edit_name').value = name;
+        document.getElementById('edit_email').value = email;
+        document.getElementById('edit_role').value = role;
+        document.getElementById('edit_section').value = section;
+        document.getElementById('edit_roll_no').value = roll;
+        document.getElementById('edit_subjects').value = subjects; 
+        document.getElementById('edit_phone').value = phone; // <-- NEW
+
+        // 4. Show modal
+        document.getElementById('editUserModal').style.display = 'flex';
+        feather.replace();
+    }
+
+    function closeEditModal() {
+        document.getElementById('editUserModal').style.display = 'none';
+    }
+
+    // Optional: Close modal if background is clicked
+    const modal = document.getElementById('editUserModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeEditModal();
+            }
+        });
+    }
+    
+    // --- User Filter Logic ---
+    function filterUserTable() {
+        const searchInput = document.getElementById('userSearchInput').value.toLowerCase();
+        const roleInput = document.getElementById('roleFilter').value;
+        const tableBody = document.getElementById('userTableBody');
+        const rows = tableBody.getElementsByTagName('tr');
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const cells = row.getElementsByTagName('td');
+            
+            // Get text content from cells
+            const name = cells[0].textContent.toLowerCase();
+            const email = cells[1].textContent.toLowerCase();
+            const role = cells[2].textContent;
+            const rollNo = cells[4].textContent.toLowerCase();
+            
+            // Check for matches
+            const matchesSearch = name.includes(searchInput) || 
+                                  email.includes(searchInput) || 
+                                  rollNo.includes(searchInput);
+                                  
+            const matchesRole = (roleInput === "") || (role === roleInput);
+
+            // Show or hide the row
+            if (matchesSearch && matchesRole) {
+                row.style.display = ""; // Show the row
+            } else {
+                row.style.display = "none"; // Hide the row
+            }
+        }
+    }
+    
+    // Run feather replace on initial load
+    document.addEventListener('DOMContentLoaded', function() {
+        feather.replace();
+    });
+</script>
+{% endblock %}

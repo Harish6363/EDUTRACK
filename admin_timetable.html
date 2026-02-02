@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}Manage Timetable{% endblock %}
+
+{% block dashboard_content %}
+<div class="header"><h1>Manage Timetable</h1></div>
+<div class="card">
+  <h4>Add New Class Schedule</h4>
+  <form method="post" action="{{ url_for('admin.manage_timetable') }}">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+      <div>
+        <label>Day of Week</label>
+        <select name="day" required>
+          <option value="Monday">Monday</option>
+          <option value="Tuesday">Tuesday</option>
+          <option value="Wednesday">Wednesday</option>
+          <option value="Thursday">Thursday</option>
+          <option value="Friday">Friday</option>
+          <option value="Saturday">Saturday</option>
+        </select>
+      </div>
+      
+      <div>
+        <label>Period (Class Time)</label>
+        <select name="period" required>
+            <option value="">-- Select a Period --</option>
+            {% for key, value in period_map.items()|sort %}
+            <option value="{{ key }}">{{ value }}</option>
+            {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Subject</label>
+        <input type="text" name="subject" placeholder="e.g., Mathematics" required>
+      </div>
+      <div>
+        <label>Section</label>
+        <select name="section" required>
+          {% for s in sections %}
+          <option value="{{ s }}">{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Faculty</label>
+        <select name="faculty_email" required>
+          {% for f in faculty_list %}
+          <option value="{{ f.email }}">{{ f.name }} ({{ f.email }})</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <button class="btn" style="margin-top: 15px;">Add Schedule</button>
+  </form>
+</div>
+
+<div class="card">
+  <h4>Master Timetable</h4>
+  {% for day, entries in timetable_by_day.items()|sort %}
+    <h5>{{ day }}</h5>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Time</th><th>Subject</th><th>Section</th><th>Faculty</th><th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in entries|sort(attribute='period_num') %}
+        <tr>
+          <td>{{ entry.time_slot }}</td>
+          <td>{{ entry.subject }}</td>
+          <td>{{ entry.section }}</td>
+          <td>{{ entry.faculty_email }}</td>
+          <td>
+            <a href="{{ url_for('admin.delete_timetable_entry', entry_id=entry._id) }}" class="btn btn-danger" style="padding: 6px 10px;">Delete</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No schedule has been created yet.</p>
+  {% endfor %}
+</div>
+{% endblock %}

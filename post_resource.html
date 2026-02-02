@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Upload Resources{% endblock %}
+
+{% block dashboard_content %}
+<div class="header">
+    <h1>Upload Course Resources</h1>
+</div>
+
+<div class="dashboard-content-wrapper">
+    <div class="card" style="max-width: 700px; margin: 0 auto;">
+        <form method="post" enctype="multipart/form-data">
+            <label for="title">Resource Title</label>
+            <input type="text" id="title" name="title" placeholder="e.g., Chapter 1: Introduction to AI" required>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <label for="subject">Subject</label>
+                    <select id="subject" name="subject" required>
+                        <option value="">-- Select your Subject --</option>
+                        {% for sub in faculty_subjects %}
+                        <option value="{{ sub }}">{{ sub }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="section">Section</label>
+                    <select id="section" name="section" required>
+                        <option value="">-- Select a Section --</option>
+                        {% for sec in sections %}
+                        <option value="{{ sec }}">{{ sec }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <label for="resource_file">Select File (PDF, PPT, ZIP, etc.)</label>
+            <input type="file" id="resource_file" name="resource_file" required>
+            
+            <button class="btn" style="width: 100%; margin-top: 15px;">
+                <i data-feather="upload-cloud" style="width: 18px; margin-right: 8px;"></i>
+                Upload Resource
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

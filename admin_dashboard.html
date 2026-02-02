@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block dashboard_content %}
+<div class="header">
+    <h1>System Analytics Dashboard</h1>
+</div>
+
+<div class="dashboard-content-wrapper">
+    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="stat-card">
+            <div class="icon attendance"><i data-feather="users"></i></div>
+            <div class="stat-info">
+                <h4>{{ kpi.total_students }}</h4>
+                <p>Total Students</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="icon classes"><i data-feather="briefcase"></i></div>
+            <div class="stat-info">
+                <h4>{{ kpi.total_faculty }}</h4>
+                <p>Total Faculty</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="icon status"><i data-feather="pie-chart"></i></div>
+            <div class="stat-info">
+                <h4>{{ kpi.overall_attendance }}%</h4>
+                <p>Overall Attendance</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-top: 20px; border-left: 5px solid var(--danger-text);">
+        <h3>System Controls</h3>
+        <p style="color: var(--light-text); margin-bottom: 15px;">Use this button to delete all attendance data and reset student statistics to 0. This allows for a fresh start or new semester.</p>
+        
+        <a href="{{ url_for('admin.reset_attendance') }}" class="btn btn-danger" onclick="return confirm('⚠️ WARNING: This will wipe ALL attendance records from the database. Are you sure you want to reset the system?');">
+            <i data-feather="trash-2" style="width: 18px;"></i> Reset All Attendance Data
+        </a>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <h3>Recent System Activity</h3>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>User (Faculty/Student)</th>
+                    <th>Action</th>
+                    <th>Details</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in activity_feed %}
+                <tr>
+                    <td>{{ item.posted_by or item.uploaded_by }}</td>
+                    
+                    {% if item.activity_type == 'Attendance' %}
+                        <td><span class="badge" style="background-color: #1e88e5;">Attendance</span></td>
+                        <td>Submitted attendance for <strong>{{ item.subject }}</strong> (Section {{ item.section }})</td>
+                    
+                    {% elif item.activity_type == 'Marks' %}
+                        <td><span class="badge" style="background-color: #2e7d32;">Marks</span></td>
+                        <td><strong>{{ item.title }}</strong> - {{ item.content }}</td>
+                    
+                    {% elif item.activity_type == 'Resource' %}
+                        <td><span class="badge" style="background-color: #f57f17;">Resource</span></td>
+                        <td>Uploaded <strong>"{{ item.title }}"</strong> for {{ item.subject }} (Sec {{ item.section }})</td>
+                    
+                    {% elif item.activity_type == 'Announcement' %}
+                        <td><span class="badge" style="background-color: #6c757d;">Announcement</span></td>
+                        <td>
+                            Posted <strong>"{{ item.title }}"</strong> ({{ item.post_type }})
+                            {% if item.image_filename %}
+                            <img src="{{ url_for('admin.get_announcement_image', filename=item.image_filename) }}" 
+                                 alt="Image" 
+                                 style="width: 100%; max-width: 200px; object-fit: cover; border-radius: 4px; margin-top: 10px; display: block;">
+                            {% endif %}
+                        </td>
+                    
+                    {% elif item.activity_type == 'Security' %}
+                        <td><span class="badge" style="background-color: var(--danger-text);">Security</span></td>
+                        <td><strong>{{ item.title }}</strong></td>
+                    
+                    {% elif item.activity_type == 'Profile' %}
+                        <td><span class="badge" style="background-color: #4a00e0;">Profile</span></td>
+                        <td><strong>{{ item.title }}</strong></td>
+
+                    {% else %}
+                        <td><span class="badge">Other</span></td>
+                        <td>Unknown activity</td>
+                    {% endif %}
+                    <td>{{ item.timestamp.strftime('%d-%b-%Y %I:%M %p') }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4">No system activity has been recorded yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}

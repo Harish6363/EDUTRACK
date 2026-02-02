@@ -1,0 +1,522 @@
+{% extends 'base.html' %}
+{% block title %}Faculty Dashboard{% endblock %}
+
+{% block dashboard_content %}
+<div class="header">
+    <div>
+        <h1>Smart Student Analytics Dashboard</h1>
+        <p style="color: #541eaaff; opacity: 0.8; margin-top: 5px;">Empowering educators through data-driven insights</p>
+    </div>
+</div>
+
+<div class="dashboard-content-wrapper">
+
+    <div class="card" style="border-left: 5px solid var(--primary-color);">
+        <h3><i data-feather="zap" style="width: 18px; margin-right: 5px; vertical-align: text-bottom;"></i> AI-Powered Insights</h3>
+        {% for insight in ai_insights %}
+            <p class="insight insight-{{ insight.type }}" style="margin-top: 10px;">{{ insight.text }}</p>
+        {% endfor %}
+    </div>
+    
+    <div class="stats-grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="stat-card glass">
+            <div class="icon attendance"><i data-feather="users"></i></div>
+            <div class="stat-info">
+                <h4>{{ kpi_data.total_students }}</h4>
+                <p>Total Students</p>
+            </div>
+        </div>
+        
+        <div class="stat-card glass">
+            <div class="icon classes"><i data-feather="pie-chart"></i></div>
+            <div class="stat-info" style="flex-grow: 1; position: relative; height: 120px;">
+                <canvas id="facultyAverageChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="card">
+        <h3>Student Overview</h3>
+
+        <div class="filter-bar">
+            <input type="text" id="studentSearchInput" placeholder="Search by name or roll number...">
+            <select id="sectionFilter">
+                <option value="">All Sections</option>
+                {% for s in sections %}
+                <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Section</th>
+                    <th>Roll No.</th>
+                    <th>Attendance %</th>
+                    <th>Fine (INR)</th>
+                    <th>Status</th>
+                    <th>Action</th> </tr>
+            </thead>
+            <tbody id="studentTableBody">
+                {% for s in students %}
+                <tr>
+                    <td>{{ s.name }}</td>
+                    <td>{{ s.section }}</td>
+                    <td>{{ s.roll_no }}</td>
+                    
+                    <td class="{{ 'status-pass-text' if s.percent >= 75 else 'status-fail-text' }}" style="font-weight: 600;">
+                        {{ s.percent }}%
+                    </td>
+                    
+                    <td>₹{{ s.fine }}</td>
+                    
+                    <td class="{{ 'status-pass' if s.percent >= 40 else 'status-fail' }}">
+                        {{ 'Pass' if s.percent >= 40 else 'Fail' }}
+                    </td>
+
+                    <td>
+                        <button class="btn btn-small" 
+                                data-name="{{ s.name }}" 
+                                data-roll="{{ s.roll_no }}"
+                                data-percent="{{ s.percent }}"
+                                data-total="{{ s.total_classes }}"
+                                data-attended="{{ s.attended }}"
+                                data-chart-data='{{ s.attendance_chart_data | safe }}'
+                                data-email="{{ s.email }}"
+                                data-marks-card='{{ s.marks_card | tojson | safe }}'
+                                data-attendance-history='{{ s.attendance_history_list | tojson | safe }}'
+                                onclick="showStudentModal(this)">
+                            <i data-feather="pie-chart"></i> View
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="card">
+        <h3>Recent Announcements</h3>
+         {% for announcement in announcements %}
+            {% if announcement.post_type != 'Log' %} <div class="card" style="margin-bottom:15px; border: 1px solid var(--border-color);">
+              <h5>{{ announcement.title }} <span class="badge" style="background-color: #6c757d; font-size:12px;">{{ announcement.post_type }}</span></h5>
+              
+              {% if announcement.image_filename %}
+              <img src="{{ url_for('faculty.get_announcement_image', filename=announcement.image_filename) }}">
+                   alt="Announcement Image" 
+                   style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-top: 15px;">
+              {% endif %}
+    
+              <p style="white-space: pre-wrap; margin-top:15px;">{{ announcement.content }}</p>
+              <small style="color:var(--light-text); margin-top:15px; display:block;">Posted by {{ announcement.posted_by }} on {{ announcement.timestamp.strftime('%d-%b-%Y') }}</small>
+            </div>
+            {% endif %}
+        {% else %}
+            <p>No announcements at this time.</p>
+        {% endfor %}
+    </div>
+    <div class="card">
+        <h3>Recent Attendance Submissions</h3>
+        <table class="table">
+            <thead><tr><th>Date</th><th>Section</th><th>Students Processed</th><th>Submitted By</th></tr></thead>
+            <tbody>
+            {% for a in latest %}
+                <tr>
+                    <td>{{ a.formatted_date }}</td>
+                    <td>{{ a.section }}</td>
+                    <td>{{ a.records | length }}</td>
+                    <td>{{ a.uploaded_by }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="4">No attendance has been submitted yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="studentModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content card" style="max-width: 700px;">
+        <button class="modal-close" onclick="closeStudentModal()">&times;</button>
+        <h3 id="modalStudentName">Student Name</h3>
+        <p id="modalStudentRoll" style="color: var(--light-text); margin-bottom: 20px;">Roll No:</p>
+        
+        <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+            <div class="stat-card" style="padding: 15px; box-shadow: none; border: 1px solid var(--border-color);">
+                <div class="stat-info">
+                    <h4 id="modalStudentPercent">0%</h4>
+                    <p>Overall Attendance</p>
+                </div>
+            </div>
+            <div class="stat-card" style="padding: 15px; box-shadow: none; border: 1px solid var(--border-color);">
+                <div class="stat-info">
+                    <h4 id="modalStudentClasses">0/0</h4>
+                    <p>Classes Attended</p>
+                </div>
+            </div>
+        </div>
+        
+        <div style="height: 250px; position: relative;">
+            <canvas id="studentAttendanceChart"></canvas>
+        </div>
+
+        <div class="tab-wrapper" style="margin-top: 20px;">
+            <div class="tab-nav" style="margin-bottom: 15px;">
+                <button class="tab-link active" onclick="openModalTab(event, 'modal-marks')"><i data-feather="award"></i> Marks Card</button>
+                <button class="tab-link" onclick="openModalTab(event, 'modal-history')"><i data-feather="check-square"></i> Attendance History</button>
+            </div>
+            
+            <div id="modal-marks" class="tab-content" style="display: block;">
+                <div style="max-height: 200px; overflow-y: auto;">
+                    <table class="table">
+                        <thead>
+                            <tr><th>Subject</th><th>Score</th><th>Grade</th><th>Status</th></tr>
+                        </thead>
+                        <tbody id="modalMarksTableBody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div id="modal-history" class="tab-content" style="display: none;">
+                <div style="max-height: 200px; overflow-y: auto;">
+                    <table class="table">
+                        <thead>
+                            <tr><th>Date</th><th>Status</th></tr>
+                        </thead>
+                        <tbody id="modalHistoryTableBody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
+        <a id="modalStudentContactBtn" href="#" class="btn" style="width: 100%; margin-top: 20px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+            <i data-feather="mail" style="width: 18px;"></i>
+            Contact Student
+        </a>
+    </div>
+</div>
+<script>
+    if (typeof Chart === 'undefined') {
+        console.error("Chart.js is not loaded! Charts will not display.");
+    }
+    
+    function openModalTab(evt, tabName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementById('studentModal').getElementsByClassName("tab-content");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+        tablinks = document.getElementById('studentModal').getElementsByClassName("tab-link");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+        feather.replace();
+    }
+
+    let studentChart = null; 
+
+    function showStudentModal(button) {
+        try {
+            if (typeof Chart === 'undefined') {
+                console.error("Chart.js is not loaded. Cannot show student chart.");
+                alert("Error: Charting library not loaded.");
+                return;
+            }
+            if (typeof feather === 'undefined') {
+                console.error("Feather.js is not loaded. Cannot replace icons.");
+                alert("Error: Icon library not loaded.");
+                return;
+            }
+
+            // --- 1. Get all data from button ---
+            const name = button.getAttribute('data-name');
+            const roll = button.getAttribute('data-roll');
+            const percent = button.getAttribute('data-percent');
+            const total = button.getAttribute('data-total');
+            const attended = button.getAttribute('data-attended');
+            const chartData = JSON.parse(button.getAttribute('data-chart-data'));
+            const email = button.getAttribute('data-email');
+            
+            const marksCardData = JSON.parse(button.getAttribute('data-marks-card'));
+            const attendanceHistoryData = JSON.parse(button.getAttribute('data-attendance-history'));
+
+
+            // --- 2. Update Modal Text ---
+            document.getElementById('modalStudentName').innerText = name;
+            document.getElementById('modalStudentRoll').innerText = `Roll No: ${roll}`;
+            document.getElementById('modalStudentPercent').innerText = `${percent}%`;
+            document.getElementById('modalStudentClasses').innerText = `${attended}/${total}`;
+
+            // --- 3. Create/Update Chart ---
+            const ctx = document.getElementById('studentAttendanceChart').getContext('2d');
+            
+            if (studentChart) {
+                studentChart.destroy();
+            }
+
+            studentChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Present', 'Absent'],
+                    datasets: [{
+                        data: [chartData.present, chartData.absent],
+                        // --- === COLOR FIX FOR MODAL CHART === ---
+                        backgroundColor: [
+                            '#e8f5e9', // Light Green
+                            '#fffde7'  // Light Yellow
+                        ],
+                        borderColor: [
+                            '#2e7d32', // Dark Green
+                            '#f57f17'  // Dark Orange
+                        ],
+                        // --- === END OF FIX === ---
+                        borderWidth: 1, 
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            position: 'bottom',
+                            labels: {
+                                color: 'var(--light-text)' 
+                            }
+                        }
+                    }
+                }
+            });
+
+            // --- 4. Populate Marks Table ---
+            const marksTableBody = document.getElementById('modalMarksTableBody');
+            marksTableBody.innerHTML = ''; 
+            
+            if (marksCardData && marksCardData.length > 0) {
+                
+                marksCardData.sort((a, b) => a.semester - b.semester);
+
+                marksCardData.forEach(semesterData => {
+                    const semester = semesterData.semester;
+                    const marks = semesterData.marks;
+                    
+                    marksTableBody.innerHTML += `
+                        <tr>
+                            <td colspan="4" style="background-color: var(--secondary-color); font-weight: 600;">
+                                Semester ${semester}
+                            </td>
+                        </tr>
+                    `;
+
+                    if (marks && marks.length > 0) {
+                        marks.forEach(mark => {
+                            const score = parseInt(mark.score, 10) || 0;
+                            let grade = 'F';
+                            let status = 'Fail';
+                            let statusClass = 'status-fail-text';
+
+                            if (score >= 90) { grade = 'A'; }
+                            else if (score >= 80) { grade = 'B'; }
+                            else if (score >= 70) { grade = 'C'; }
+                            else if (score >= 60) { grade = 'D'; }
+                            else if (score >= 50) { grade = 'E'; }
+                            else if (score >= 40) { grade = 'P'; }
+                            
+                            if (score >= 40) {
+                                status = 'Pass';
+                                statusClass = 'status-pass-text';
+                            }
+                            
+                            const row = `<tr>
+                                <td>${mark.subject}</td>
+                                <td style="font-weight: 600;">${score}</td>
+                                <td>${grade}</td>
+                                <td class="${statusClass}" style="font-weight: 600;">${status}</td>
+                            </tr>`;
+                            marksTableBody.innerHTML += row;
+                        });
+                    } else {
+                         marksTableBody.innerHTML += '<tr><td colspan="4">No marks found for this semester.</td></tr>';
+                    }
+                });
+            } else {
+                marksTableBody.innerHTML = '<tr><td colspan="4">No marks uploaded yet for this student.</td></tr>';
+            }
+
+            // --- 5. Populate Attendance History Table ---
+            const historyTableBody = document.getElementById('modalHistoryTableBody');
+            historyTableBody.innerHTML = ''; 
+            
+            if (attendanceHistoryData && attendanceHistoryData.length > 0) {
+                attendanceHistoryData.forEach(record => {
+                    const formattedDate = record.date; 
+                    const statusClass = record.status === 'Present' ? 'present' : 'absent';
+                    
+                    const row = `<tr>
+                        <td>${formattedDate}</td>
+                        <td><span class="badge ${statusClass}">${record.status}</span></td>
+                    </tr>`;
+                    historyTableBody.innerHTML += row;
+                });
+            } else {
+                historyTableBody.innerHTML = '<tr><td colspan="2">No attendance history found.</td></tr>';
+            }
+
+            // --- 6. UPDATE CONTACT BUTTON ---
+            const contactBtn = document.getElementById('modalStudentContactBtn');
+            const subject = encodeURIComponent("Important: Your Attendance & Performance");
+            const facultyEmail = {{ session.email | tojson | safe }};
+            const body = encodeURIComponent(`Dear ${name} (${roll}),\n\nI am writing to discuss your current attendance, which is at ${percent}%.\n\nPlease let me know when we can meet to talk about this.\n\nRegards,\n${facultyEmail}`);
+            contactBtn.href = `mailto:${email}?subject=${subject}&body=${body}`;
+
+            // --- 7. Show Modal ---
+            document.getElementById('studentModal').style.display = 'flex';
+            
+            openModalTab({ currentTarget: document.getElementById('studentModal').getElementsByClassName('tab-link')[0] }, 'modal-marks');
+            
+            feather.replace(); 
+
+        } catch (e) {
+            console.error("Error showing modal:", e);
+            alert("An error occurred while trying to show student details.");
+        }
+    }
+
+    function closeStudentModal() {
+        document.getElementById('studentModal').style.display = 'none';
+        if (studentChart) {
+            studentChart.destroy();
+            studentChart = null;
+        }
+    }
+    
+    const modal = document.getElementById('studentModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeStudentModal();
+            }
+        });
+    }
+
+    // --- LIVE FILTER JAVASCRIPT ---
+    const searchInput = document.getElementById('studentSearchInput');
+    const sectionFilter = document.getElementById('sectionFilter');
+    const tableBody = document.getElementById('studentTableBody');
+    const tableRows = tableBody.getElementsByTagName('tr');
+
+    function filterTable() {
+        const searchText = searchInput.value.toLowerCase();
+        const sectionValue = sectionFilter.value;
+
+        for (let i = 0; i < tableRows.length; i++) {
+            const row = tableRows[i];
+            const cells = row.getElementsByTagName('td');
+            
+            const name = cells[0].textContent.toLowerCase();
+            const section = cells[1].textContent;
+            const rollNo = cells[2].textContent.toLowerCase();
+
+            const matchesSearch = name.includes(searchText) || rollNo.includes(searchText);
+            const matchesSection = (sectionValue === "") || (section === sectionValue);
+
+            if (matchesSearch && matchesSection) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        }
+    }
+
+    if(searchInput) {
+        searchInput.addEventListener('input', filterTable);
+    }
+    if(sectionFilter) {
+        sectionFilter.addEventListener('change', filterTable);
+    }
+    
+    // --- JAVASCRIPT FOR FACULTY CHART ---
+    document.addEventListener('DOMContentLoaded', function() {
+        feather.replace();
+        
+        // --- Render Faculty Average Attendance Chart ---
+        try {
+            const chartData = {{ faculty_avg_chart_data | tojson | safe }};
+            const ctx = document.getElementById('facultyAverageChart').getContext('2d');
+            
+            if (!chartData) {
+                console.error("Faculty average chart data not found.");
+                return;
+            }
+            
+            if (chartData.present === 0 && chartData.absent === 0) {
+                console.log("No attendance data to show in faculty chart yet.");
+                return;
+            }
+
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Present', 'Absent'],
+                    datasets: [{
+                        data: [chartData.present, chartData.absent],
+                        // --- === COLOR FIX FOR DASHBOARD CHART === ---
+                        backgroundColor: [
+                            '#e8f5e9', // Light Green
+                            '#fffde7'  // Light Yellow
+                        ],
+                        borderColor: [
+                            '#2e7d32', // Dark Green
+                            '#f57f17'  // Dark Orange
+                        ],
+                        // --- === END OF FIX === ---
+                        borderWidth: 1, 
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            position: 'right', 
+                            labels: {
+                                color: 'var(--light-text)',
+                                boxWidth: 10 
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                        label += `${percentage}%`;
+                                    }
+    
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (e) {
+            console.error("Error rendering faculty average chart:", e);
+        }
+    });
+    
+</script>
+
+{% endblock %}

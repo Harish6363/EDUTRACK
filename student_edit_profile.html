@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Edit Profile{% endblock %}
+
+{% block dashboard_content %}
+<div class="header">
+    <h1>Edit Your Profile</h1>
+</div>
+
+<div class="dashboard-content-wrapper">
+    <div class="card" style="max-width: 600px; margin: 0 auto;">
+        <form method="post">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" name="name" value="{{ user.name }}" required>
+            
+            <label for="email">Email (Read-only)</label>
+            <input type="email" id="email" name="email" value="{{ user.email }}" readonly disabled>
+            <p style="font-size: 13px; color: var(--light-text); margin-top: -10px; margin-bottom: 15px;">Email address cannot be changed.</p>
+            
+            <label for="phone">Phone Number (Optional)</label>
+            <input type="tel" id="phone" name="phone" value="{{ user.phone or '' }}" placeholder="e.g., +919876543210">
+            
+            <button class="btn" style="width: 100%; margin-top: 10px;">Save Changes</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-B">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}EduTrack{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    </head>
+<body>
+    {% if session.user_id %}
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                EduTrack
+            </div>
+            <nav class="sidebar-nav">
+                {% if session.role == 'student' %}
+                    <a href="{{ url_for('student.dashboard') }}" class="{{ 'active' if request.endpoint == 'student.dashboard' else '' }}"><i data-feather="home"></i> Dashboard</a>
+                    <a href="{{ url_for('student.tasks') }}" class="{{ 'active' if request.endpoint == 'student.tasks' else '' }}"><i data-feather="list"></i> Study Planner</a>
+                    
+                    <a href="{{ url_for('student.study_tools') }}" class="{{ 'active' if request.endpoint == 'student.study_tools' else '' }}"><i data-feather="cpu"></i> AI Study Tools</a>
+                    
+                    <a href="{{ url_for('student.edit_profile') }}" class="{{ 'active' if request.endpoint == 'student.edit_profile' else '' }}"><i data-feather="user"></i> Edit Profile</a>
+                    <a href="{{ url_for('student.change_password') }}" class="{{ 'active' if request.endpoint == 'student.change_password' else '' }}"><i data-feather="lock"></i> Change Password</a>
+                {% elif session.role == 'faculty' %}
+                    <a href="{{ url_for('faculty.dashboard') }}" class="{{ 'active' if request.endpoint == 'faculty.dashboard' else '' }}"><i data-feather="home"></i> Dashboard</a>
+                    <a href="{{ url_for('faculty.attendance') }}" class="{{ 'active' if request.endpoint == 'faculty.attendance' else '' }}"><i data-feather="check-square"></i> Mark Attendance</a>
+                    <a href="{{ url_for('faculty.upload_marks') }}" class="{{ 'active' if request.endpoint == 'faculty.upload_marks' else '' }}"><i data-feather="edit"></i> Upload Marks</a>
+                    <a href="{{ url_for('faculty.post_announcement') }}" class="{{ 'active' if request.endpoint == 'faculty.post_announcement' else '' }}"><i data-feather="send"></i> Post Announcement</a>
+                    <a href="{{ url_for('faculty.post_resource') }}" class="{{ 'active' if request.endpoint == 'faculty.post_resource' else '' }}"><i data-feather="upload-cloud"></i> Upload Resources</a>
+                {% elif session.role == 'admin' %}
+                     <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if request.endpoint == 'admin.dashboard' else '' }}"><i data-feather="bar-chart-2"></i> Analytics</a>
+                     <a href="{{ url_for('admin.manage_users') }}" class="{{ 'active' if request.endpoint in ['admin.manage_users', 'admin.add_user', 'admin.bulk_upload', 'admin.edit_user'] else '' }}"><i data-feather="users"></i> User Management</a>
+                     <a href="{{ url_for('admin.manage_timetable') }}" class="{{ 'active' if request.endpoint == 'admin.manage_timetable' else '' }}"><i data-feather="calendar"></i> Manage Timetable</a>
+                {% endif %}
+            </nav>
+            <div class="sidebar-footer">
+                 <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
+            </div>
+        </aside>
+        <main class="main-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for cat,msg in messages %}
+                  <div class="flash {{cat}}">{{msg}}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+            
+            {% block dashboard_content %}{% endblock %}
+
+            <footer class="footer">
+                Developed by Sneha K – EduTrack Project
+            </footer>
+        </main>
+    {% else %}
+        {% block standalone_content %}{% endblock %}
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script>feather.replace();</script>
+    </body>
+</html>
